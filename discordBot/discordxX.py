@@ -3,6 +3,8 @@ import discord
 import aiohttp
 import asyncio
 from dotenv import load_dotenv
+from flask import Flask
+from threading import Thread
 
 load_dotenv()
 
@@ -25,7 +27,7 @@ async def get_username(session, user_id):
     async with session.get(url, headers=headers) as response:
         if response.status == 200:
             data = await response.json()
-            return data["data"]["username"]  # 回傳 username
+            return data["data"]["username"]
         else:
             print(f"Error fetching username {user_id}: {response.status}")
             return None
@@ -43,7 +45,6 @@ async def get_latest_tweet(session, user_id):
 
 async def check_all_tweets(channel):
     async with aiohttp.ClientSession() as session:
-        # 如果 usernames 還沒取得，就先抓一次
         for user_id in X_USER_IDS:
             if user_id not in usernames:
                 usernames[user_id] = await get_username(session, user_id)
@@ -70,5 +71,18 @@ async def on_ready():
         await asyncio.sleep(60)  # 每分鐘檢查一次
         await check_all_tweets(channel)
 
-client.run(DISCORD_TOKEN)
+# ------------------ Flask 監聽 Port ------------------
+app = Flask("")
 
+@app.route("/")
+def home():
+    return "Bot is running!"
+
+def run_flask():
+    port = int(os.environ.get("PORT", 10000))  # Render 會自動指定 PORT
+    app.run(host="0.0.0.0", port=port)
+
+Thread(target=run_flask).start()
+
+# ------------------ 啟動 Discord Bot ------------------
+client.run(DISCORD_TOKEN)
